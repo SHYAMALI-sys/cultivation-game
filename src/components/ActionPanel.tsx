@@ -72,7 +72,7 @@ export const ActionPanel: React.FC<Props> = ({ state, onToggleMeditation, onStar
         {nextRealm && (
           <button
             onClick={onAttemptBreakthrough}
-            disabled={!canBreakthrough || state.tribulationActive}
+            disabled={!canBreakthrough || state.tribulationActive || state.isMeditating || state.isExploring}
             className={`w-full py-3 px-4 rounded-lg font-semibold transition-all duration-300 ${
               canBreakthrough
                 ? 'bg-gradient-to-r from-yellow-600 to-amber-500 text-white shadow-lg shadow-yellow-500/30 hover:from-yellow-500 hover:to-amber-400 animate-pulse'
