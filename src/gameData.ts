@@ -19,7 +19,7 @@ export const REALMS: Realm[] = [
   { id: 15, name: 'Body Integration', description: 'Merging with the laws of heaven and earth.', qiRequired: 100000000, breakthroughChance: 0.08, color: '#06b6d4' },
   { id: 16, name: 'Mahayana', description: 'Standing at the apex of the mortal realm.', qiRequired: 300000000, breakthroughChance: 0.05, color: '#ec4899' },
   { id: 17, name: 'Tribulation Transcendence', description: 'Facing heavenly tribulation to ascend.', qiRequired: 1000000000, breakthroughChance: 0.03, color: '#f43f5e' },
-  { id: 18, name: 'True Immortal', description: 'Ascended beyond mortality. Eternal existence.', qiRequired: Infinity, breakthroughChance: 1, color: '#fbbf24' },
+  { id: 18, name: 'True Immortal', description: 'Ascended beyond mortality. Eternal existence.', qiRequired: 3000000000, breakthroughChance: 1, color: '#fbbf24' },
 ];
 
 export const INITIAL_ITEMS: Item[] = [

@@ -11,6 +11,8 @@ export const StatusPanel: React.FC<Props> = ({ state }) => {
   const currentRealm = REALMS[state.realm];
   const nextRealm = REALMS[state.realm + 1];
   const qiPercent = nextRealm ? Math.min((state.qi / nextRealm.qiRequired) * 100, 100) : 100;
+  const techniqueMultiplier = 1 + state.techniques.reduce((bonus, technique) => bonus + (technique.learned && technique.type === 'cultivation' ? technique.level * 0.15 : 0), 0);
+  const effectiveQiRate = state.qiPerSecond * state.cultivationSpeed * techniqueMultiplier;
 
   return (
     <div className="bg-gray-900/80 backdrop-blur-sm border border-purple-900/50 rounded-xl p-4 shadow-lg shadow-purple-900/20">
@@ -44,7 +46,7 @@ export const StatusPanel: React.FC<Props> = ({ state }) => {
       <div className="grid grid-cols-2 gap-3 text-sm">
         <div className="bg-gray-800/50 rounded-lg p-2 text-center">
           <div className="text-gray-400 text-xs">Qi/sec</div>
-          <div className="text-cyan-300 font-semibold">{(state.qiPerSecond * state.cultivationSpeed).toFixed(1)}</div>
+          <div className="text-cyan-300 font-semibold">{effectiveQiRate.toFixed(1)}</div>
         </div>
         <div className="bg-gray-800/50 rounded-lg p-2 text-center">
           <div className="text-gray-400 text-xs">Cult. Speed</div>

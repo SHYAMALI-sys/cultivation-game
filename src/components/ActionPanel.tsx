@@ -7,12 +7,15 @@ interface Props {
   state: GameState;
   onToggleMeditation: () => void;
   onStartExploring: () => void;
+  onHuntSpiritBeast: () => void;
   onAttemptBreakthrough: () => void;
 }
 
-export const ActionPanel: React.FC<Props> = ({ state, onToggleMeditation, onStartExploring, onAttemptBreakthrough }) => {
+export const ActionPanel: React.FC<Props> = ({ state, onToggleMeditation, onStartExploring, onHuntSpiritBeast, onAttemptBreakthrough }) => {
   const nextRealm = REALMS[state.realm + 1];
   const canBreakthrough = nextRealm && state.qi >= nextRealm.qiRequired;
+  const breakthroughBonus = state.items.reduce((sum, item) => sum + (item.quantity > 0 ? (item.effect?.breakthroughBonus ?? 0) : 0), 0);
+  const breakthroughChance = nextRealm ? Math.min(1, nextRealm.breakthroughChance + breakthroughBonus) : 0;
 
   return (
     <div className="bg-gray-900/80 backdrop-blur-sm border border-purple-900/50 rounded-xl p-4 shadow-lg shadow-purple-900/20">
@@ -68,11 +71,24 @@ export const ActionPanel: React.FC<Props> = ({ state, onToggleMeditation, onStar
           )}
         </button>
 
+        {/* Spirit Beast Hunt */}
+        <button
+          onClick={onHuntSpiritBeast}
+          disabled={state.isMeditating || state.isExploring || state.tribulationActive || state.spiritStones < 5}
+          className="w-full rounded-lg border border-rose-900/60 bg-gradient-to-r from-rose-950 to-orange-950 px-4 py-3 text-left text-rose-100 transition-all hover:border-rose-600 hover:from-rose-900 hover:to-orange-900 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <span className="flex items-center justify-between gap-2">
+            <span className="font-semibold">🐉 Hunt a Spirit Beast</span>
+            <span className="text-xs text-rose-300">5 stones</span>
+          </span>
+          <span className="mt-1 block text-xs text-rose-200/70">Risk Qi to earn spirit stones, materials, and combat mastery.</span>
+        </button>
+
         {/* Breakthrough Button */}
         {nextRealm && (
           <button
             onClick={onAttemptBreakthrough}
-            disabled={!canBreakthrough || state.tribulationActive}
+            disabled={!canBreakthrough || state.tribulationActive || state.isMeditating || state.isExploring}
             className={`w-full py-3 px-4 rounded-lg font-semibold transition-all duration-300 ${
               canBreakthrough
                 ? 'bg-gradient-to-r from-yellow-600 to-amber-500 text-white shadow-lg shadow-yellow-500/30 hover:from-yellow-500 hover:to-amber-400 animate-pulse'
@@ -84,7 +100,7 @@ export const ActionPanel: React.FC<Props> = ({ state, onToggleMeditation, onStar
             </span>
             <span className="text-xs mt-1 opacity-75">
               {canBreakthrough 
-                ? `→ ${nextRealm.name} (${Math.floor(nextRealm.breakthroughChance * 100)}% chance)`
+                ? `→ ${nextRealm.name} (${Math.floor(breakthroughChance * 100)}% chance)`
                 : `Need ${formatNumber(nextRealm.qiRequired)} Qi`
               }
             </span>
