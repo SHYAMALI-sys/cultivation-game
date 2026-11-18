@@ -5,37 +5,46 @@ import { REALMS, INITIAL_ITEMS, INITIAL_TECHNIQUES, EXPLORE_EVENTS, ALCHEMY_RECI
 const SAVE_KEY = 'cultivation_game_save';
 
 const getInitialState = (): GameState => {
-  const saved = localStorage.getItem(SAVE_KEY);
-  if (saved) {
-    try {
-      return JSON.parse(saved);
-    } catch {
-      // fall through
-    }
-  }
-  return {
-    playerName: 'Unnamed Cultivator',
-    realm: 0,
-    qi: 0,
-    maxQi: 100,
-    qiPerSecond: 1,
-    spiritStones: 50,
-    cultivationSpeed: 1,
-    combatPower: 10,
-    isMeditating: false,
-    isExploring: false,
-    exploreProgress: 0,
-    breakthroughAttempts: 0,
-    tribulationActive: false,
-    tribulationHealth: 100,
-    items: INITIAL_ITEMS.map(i => ({ ...i })),
-    techniques: INITIAL_TECHNIQUES.map(t => ({ ...t })),
+  const defaults: GameState = {
+    playerName: 'Unnamed Cultivator', realm: 0, qi: 0, maxQi: 100,
+    qiPerSecond: 1, spiritStones: 50, cultivationSpeed: 1, combatPower: 10,
+    isMeditating: false, isExploring: false, exploreProgress: 0,
+    breakthroughAttempts: 0, tribulationActive: false, tribulationHealth: 100,
+    items: INITIAL_ITEMS.map(item => ({ ...item })),
+    techniques: INITIAL_TECHNIQUES.map(technique => ({ ...technique })),
     log: [{ id: 0, message: 'You awaken in a small village, feeling a strange energy within...', type: 'info', timestamp: Date.now() }],
-    totalCultivationTime: 0,
-    breakthroughs: 0,
-    explorationsCompleted: 0,
-    battlesWon: 0,
+    totalCultivationTime: 0, breakthroughs: 0, explorationsCompleted: 0, battlesWon: 0,
   };
+
+  try {
+    if (typeof window === 'undefined') return defaults;
+    const saved = window.localStorage.getItem(SAVE_KEY);
+    if (!saved) return defaults;
+    const parsed = JSON.parse(saved) as Partial<GameState>;
+    if (!parsed || typeof parsed !== 'object') return defaults;
+
+    return {
+      ...defaults,
+      ...parsed,
+      realm: typeof parsed.realm === 'number' && Number.isInteger(parsed.realm)
+        ? Math.min(REALMS.length - 1, Math.max(0, parsed.realm))
+        : defaults.realm,
+      qi: typeof parsed.qi === 'number' && Number.isFinite(parsed.qi) ? Math.max(0, parsed.qi) : defaults.qi,
+      items: defaults.items.map(item => {
+        const savedItem = parsed.items?.find(candidate => candidate?.id === item.id);
+        return savedItem ? { ...item, ...savedItem, quantity: Math.max(0, Number(savedItem.quantity) || 0) } : item;
+      }),
+      techniques: defaults.techniques.map(technique => {
+        const savedTechnique = parsed.techniques?.find(candidate => candidate?.id === technique.id);
+        return savedTechnique ? { ...technique, ...savedTechnique } : technique;
+      }),
+      log: Array.isArray(parsed.log)
+        ? parsed.log.filter(entry => entry && typeof entry.message === 'string').slice(0, 50)
+        : defaults.log,
+    };
+  } catch {
+    return defaults;
+  }
 };
 
 let logIdCounter = 1000;
@@ -45,30 +54,41 @@ export function useGameState() {
   const stateRef = useRef(state);
   stateRef.current = state;
 
-  // Save game periodically
+  // Save periodically and when the page is about to close.
   useEffect(() => {
-    const interval = setInterval(() => {
-      localStorage.setItem(SAVE_KEY, JSON.stringify(stateRef.current));
-    }, 5000);
-    return () => clearInterval(interval);
+    const persist = () => {
+      try {
+        if (typeof window !== 'undefined') window.localStorage.setItem(SAVE_KEY, JSON.stringify(stateRef.current));
+      } catch {
+        // Storage can be disabled or full; keep the game playable.
+      }
+    };
+    const interval = setInterval(persist, 5000);
+    window.addEventListener('beforeunload', persist);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('beforeunload', persist);
+      persist();
+    };
   }, []);
 
   // Main game loop
   useEffect(() => {
     const interval = setInterval(() => {
       setState(prev => {
+        const elapsedSeconds = 0.1; // 100 ms loop; game rates are per second.
         let newState = { ...prev };
         
         // Meditation gains
         if (prev.isMeditating) {
-          const qiGain = prev.qiPerSecond * prev.cultivationSpeed * getTechniqueBonus(prev);
+          const qiGain = prev.qiPerSecond * prev.cultivationSpeed * getTechniqueBonus(prev) * elapsedSeconds;
           newState.qi = Math.min(prev.qi + qiGain, prev.maxQi);
-          newState.totalCultivationTime += 1;
+          newState.totalCultivationTime += elapsedSeconds;
         }
 
         // Exploration progress
         if (prev.isExploring) {
-          newState.exploreProgress = prev.exploreProgress + 2;
+          newState.exploreProgress = Math.min(100, prev.exploreProgress + 2 * elapsedSeconds);
           if (newState.exploreProgress >= 100) {
             newState.isExploring = false;
             newState.exploreProgress = 0;
@@ -78,13 +98,17 @@ export function useGameState() {
             const event = EXPLORE_EVENTS[Math.floor(Math.random() * EXPLORE_EVENTS.length)];
             newState.log = addLog(newState.log, event.message, 'success');
             newState.qi = Math.min(newState.qi + event.qi, newState.maxQi);
-            newState.spiritStones += event.stones;
+            newState.spiritStones = Math.max(0, newState.spiritStones + event.stones);
             
             // Add items
             for (const itemDrop of event.items) {
-              const existing = newState.items.find(i => i.id === itemDrop.id);
-              if (existing) {
-                existing.quantity += itemDrop.quantity;
+              if (newState.items.some(item => item.id === itemDrop.id)) {
+                newState.items = newState.items.map(item =>
+                  item.id === itemDrop.id ? { ...item, quantity: item.quantity + itemDrop.quantity } : item
+                );
+              } else {
+                const template = INITIAL_ITEMS.find(item => item.id === itemDrop.id);
+                if (template) newState.items = [...newState.items, { ...template, quantity: itemDrop.quantity }];
               }
             }
           }
@@ -92,7 +116,7 @@ export function useGameState() {
 
         // Tribulation
         if (prev.tribulationActive) {
-          newState.tribulationHealth = Math.max(0, prev.tribulationHealth - 1);
+          newState.tribulationHealth = Math.max(0, prev.tribulationHealth - elapsedSeconds);
           if (newState.tribulationHealth <= 0) {
             newState.tribulationActive = false;
             newState.tribulationHealth = 100;
@@ -146,7 +170,7 @@ export function useGameState() {
         return { ...prev, log: addLog(prev.log, `Not enough Qi. Need ${formatNumber(nextRealm.qiRequired)}, have ${formatNumber(Math.floor(prev.qi))}.`, 'warning') };
       }
 
-      const breakthroughChance = nextRealm.breakthroughChance + getBreakthroughBonus(prev);
+      const breakthroughChance = Math.min(1, nextRealm.breakthroughChance + getBreakthroughBonus(prev));
       const success = Math.random() < breakthroughChance;
       
       const newState = { ...prev, breakthroughAttempts: prev.breakthroughAttempts + 1 };
@@ -234,14 +258,8 @@ export function useGameState() {
         if (ingredient) {
           return { ...i, quantity: i.quantity - ingredient.quantity };
         }
-        return i;
+        return { ...i };
       });
-      
-      // Add result
-      const resultItem = newItems.find(i => i.id === recipe.result.id);
-      if (resultItem) {
-        resultItem.quantity += recipe.result.quantity;
-      }
       
       // Success chance based on alchemy level
       const alchemyTech = prev.techniques.find(t => t.id === 'alchemy_basic');
@@ -251,6 +269,10 @@ export function useGameState() {
       if (!success) {
         return { ...prev, items: newItems, log: addLog(prev.log, `Alchemy failed! The pill furnace exploded...`, 'danger') };
       }
+
+      // Only create the pill after a successful refinement.
+      const resultItem = newItems.find(i => i.id === recipe.result.id);
+      if (resultItem) resultItem.quantity += recipe.result.quantity;
       
       // Level up alchemy
       const newTechniques = prev.techniques.map(t => {
@@ -335,7 +357,7 @@ function getBreakthroughBonus(state: GameState): number {
   let bonus = 0;
   for (const item of state.items) {
     if (item.effect?.breakthroughBonus && item.quantity > 0) {
-      bonus += item.effect.breakthroughBonus * 0.1;
+      bonus += item.effect.breakthroughBonus;
     }
   }
   return bonus;
