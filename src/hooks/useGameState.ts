@@ -88,7 +88,7 @@ export function useGameState() {
 
         // Exploration progress
         if (prev.isExploring) {
-          newState.exploreProgress = Math.min(100, prev.exploreProgress + 2 * elapsedSeconds);
+          newState.exploreProgress = Math.min(100, prev.exploreProgress + 20 * elapsedSeconds);
           if (newState.exploreProgress >= 100) {
             newState.isExploring = false;
             newState.exploreProgress = 0;
@@ -116,7 +116,7 @@ export function useGameState() {
 
         // Tribulation
         if (prev.tribulationActive) {
-          newState.tribulationHealth = Math.max(0, prev.tribulationHealth - elapsedSeconds);
+          newState.tribulationHealth = Math.max(0, prev.tribulationHealth - 10 * elapsedSeconds);
           if (newState.tribulationHealth <= 0) {
             newState.tribulationActive = false;
             newState.tribulationHealth = 100;
@@ -369,7 +369,7 @@ export function useGameState() {
   }, []);
 
   const resetGame = useCallback(() => {
-    localStorage.removeItem(SAVE_KEY);
+    try { localStorage.removeItem(SAVE_KEY); } catch { /* Storage may be unavailable. */ }
     setState(getInitialState());
   }, []);
 
