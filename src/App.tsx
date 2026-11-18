@@ -6,6 +6,9 @@ import { InventoryPanel } from './components/InventoryPanel';
 import { TechniquesPanel } from './components/TechniquesPanel';
 import { EventLog } from './components/EventLog';
 import { RealmProgression } from './components/RealmProgression';
+import { AdvisorPanel } from './components/AdvisorPanel';
+
+const STAR_FIELD = Array.from({ length: 30 }, (_, i) => ({ left: `${(i * 37 + 11) % 100}%`, top: `${(i * 61 + 7) % 100}%`, delay: `${(i % 7) * 0.43}s`, opacity: 0.2 + ((i * 13) % 5) * 0.12 }));
 
 function App() {
   const {
@@ -31,15 +34,15 @@ function App() {
         <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
         
         {/* Stars */}
-        {Array.from({ length: 30 }).map((_, i) => (
+        {STAR_FIELD.map((star, i) => (
           <div
             key={i}
             className="absolute w-0.5 h-0.5 bg-white rounded-full animate-pulse"
             style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 3}s`,
-              opacity: Math.random() * 0.5 + 0.2,
+              left: star.left,
+              top: star.top,
+              animationDelay: star.delay,
+              opacity: star.opacity,
             }}
           />
         ))}
@@ -127,6 +130,13 @@ function App() {
 
           {/* Right Column - Additional Info */}
           <div className="lg:col-span-4 space-y-4">
+            <AdvisorPanel
+              state={state}
+              onMeditate={toggleMeditation}
+              onExplore={startExploring}
+              onBreakthrough={attemptBreakthrough}
+              onTrain={trainTechnique}
+            />
             <div className="bg-gray-900/80 backdrop-blur-sm border border-purple-900/50 rounded-xl p-4 shadow-lg shadow-purple-900/20">
               <h3 className="text-lg font-bold text-purple-200 mb-3 flex items-center gap-2">
                 <span>🌟</span> Cultivation Guide
