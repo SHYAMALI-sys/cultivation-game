@@ -324,6 +324,50 @@ export function useGameState() {
     });
   }, []);
 
+  const huntSpiritBeast = useCallback(() => {
+    setState(prev => {
+      if (prev.isMeditating || prev.isExploring || prev.tribulationActive) {
+        return { ...prev, log: addLog(prev.log, 'Finish your current activity before hunting a spirit beast.', 'warning') };
+      }
+      const entryCost = 5;
+      if (prev.spiritStones < entryCost) {
+        return { ...prev, log: addLog(prev.log, `Hunting requires ${entryCost} spirit stones.`, 'warning') };
+      }
+
+      const enemyPower = 18 + prev.realm * 30 + Math.floor(Math.random() * 24);
+      const playerPower = prev.combatPower;
+      const winChance = Math.min(0.9, Math.max(0.15, 0.55 + (playerPower - enemyPower) / Math.max(80, enemyPower * 1.5)));
+      const victory = Math.random() < winChance;
+      const remainingStones = prev.spiritStones - entryCost;
+
+      if (!victory) {
+        return {
+          ...prev,
+          spiritStones: remainingStones,
+          qi: Math.floor(prev.qi * 0.9),
+          log: addLog(prev.log, `The spirit beast overpowered you. You escaped with 10% less Qi. (${Math.round(winChance * 100)}% estimated odds)`, 'danger'),
+        };
+      }
+
+      const lootIds = ['spirit_herb', 'iron_ore', 'crystal'];
+      const lootId = lootIds[Math.floor(Math.random() * lootIds.length)];
+      const items = prev.items.some(item => item.id === lootId)
+        ? prev.items.map(item => item.id === lootId ? { ...item, quantity: item.quantity + 1 } : item)
+        : prev.items;
+      const rewardStones = 12 + prev.realm * 6;
+      const rewardQi = 10 + prev.realm * 20;
+      return {
+        ...prev,
+        items,
+        qi: Math.min(prev.maxQi, prev.qi + rewardQi),
+        spiritStones: remainingStones + rewardStones,
+        combatPower: prev.combatPower + 1,
+        battlesWon: prev.battlesWon + 1,
+        log: addLog(prev.log, `Victory! You defeated a spirit beast, found ${rewardStones} spirit stones and 1 ${lootId.replace('_', ' ')}. Combat mastery increased.`, 'success'),
+      };
+    });
+  }, []);
+
   const resetGame = useCallback(() => {
     localStorage.removeItem(SAVE_KEY);
     setState(getInitialState());
@@ -337,6 +381,7 @@ export function useGameState() {
     useItem,
     craftPill,
     trainTechnique,
+    huntSpiritBeast,
     addLogEntry,
     resetGame,
   };
