@@ -7,6 +7,7 @@ import { TechniquesPanel } from './components/TechniquesPanel';
 import { EventLog } from './components/EventLog';
 import { RealmProgression } from './components/RealmProgression';
 import { AdvisorPanel } from './components/AdvisorPanel';
+import { WorldPanel } from './components/WorldPanel';
 
 const STAR_FIELD = Array.from({ length: 30 }, (_, i) => ({ left: `${(i * 37 + 11) % 100}%`, top: `${(i * 61 + 7) % 100}%`, delay: `${(i % 7) * 0.43}s`, opacity: 0.2 + ((i * 13) % 5) * 0.12 }));
 
@@ -21,10 +22,11 @@ function App() {
     trainTechnique,
     huntSpiritBeast,
     resetGame,
+    choosePath, travelTo, joinSect, contributeToSect, recruitDisciple, useDivineAbility, toggleForbiddenRoute, confrontHeartDemon,
   } = useGameState();
 
   const [showReset, setShowReset] = useState(false);
-  const [activeTab, setActiveTab] = useState<'actions' | 'inventory' | 'techniques'>('actions');
+  const [activeTab, setActiveTab] = useState<'actions' | 'inventory' | 'techniques' | 'world'>('actions');
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-indigo-950 text-white relative overflow-hidden">
@@ -87,6 +89,14 @@ function App() {
                 🎒 Items
               </button>
               <button
+                onClick={() => setActiveTab('world')}
+                className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'world' ? 'bg-purple-700/50 text-purple-200' : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                🌌 World
+              </button>
+              <button
                 onClick={() => setActiveTab('techniques')}
                 className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
                   activeTab === 'techniques' ? 'bg-purple-700/50 text-purple-200' : 'text-gray-400 hover:text-gray-200'
@@ -126,8 +136,12 @@ function App() {
               {activeTab === 'techniques' && (
                 <TechniquesPanel state={state} onCraft={craftPill} onTrain={trainTechnique} />
               )}
+              {activeTab === 'world' && <WorldPanel state={state} onChoosePath={choosePath} onTravel={travelTo} onJoinSect={joinSect} onContribute={contributeToSect} onRecruit={recruitDisciple} onUseAbility={useDivineAbility} onToggleForbidden={toggleForbiddenRoute} onConfrontDemon={confrontHeartDemon} />}
             </div>
 
+            <div className="hidden lg:block">
+              <WorldPanel state={state} onChoosePath={choosePath} onTravel={travelTo} onJoinSect={joinSect} onContribute={contributeToSect} onRecruit={recruitDisciple} onUseAbility={useDivineAbility} onToggleForbidden={toggleForbiddenRoute} onConfrontDemon={confrontHeartDemon} />
+            </div>
             <EventLog log={state.log} />
           </div>
 
@@ -168,7 +182,7 @@ function App() {
                 </div>
                 <p className="text-blue-300 mt-3 text-sm">Gathering spiritual energy...</p>
                 <p className="text-blue-400 text-xs mt-1">
-                  +{(state.qiPerSecond * state.cultivationSpeed * (1 + state.techniques.reduce((bonus, technique) => bonus + (technique.learned && technique.type === 'cultivation' ? technique.level * 0.15 : 0), 0))).toFixed(1)} Qi/sec
+                  +{(state.qiPerSecond * state.cultivationSpeed * (state.path === 'spirit' ? 1.24 : state.path === 'shadow' ? 1.18 : state.path === 'body' ? 1.08 : 1.04) * (state.forbiddenRoute ? 1.12 : 1) * (1 + state.techniques.reduce((bonus, technique) => bonus + (technique.learned && technique.type === 'cultivation' ? technique.level * 0.15 : 0), 0))).toFixed(1)} Qi/sec
                 </p>
               </div>
             )}

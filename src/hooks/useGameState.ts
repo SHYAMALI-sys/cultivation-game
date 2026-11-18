@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { GameState, LogEntry, Item } from '../types';
-import { REALMS, INITIAL_ITEMS, INITIAL_TECHNIQUES, EXPLORE_EVENTS, ALCHEMY_RECIPES } from '../gameData';
+import { CultivationPathId, Disciple, GameState, LogEntry, RegionId } from '../types';
+import { REALMS, INITIAL_ITEMS, INITIAL_TECHNIQUES, EXPLORE_EVENTS, ALCHEMY_RECIPES, CULTIVATION_PATHS, REGIONS, SECTS, WORLD_EVENT_TEMPLATES } from '../gameData';
 
 const SAVE_KEY = 'cultivation_game_save';
 
@@ -14,6 +14,9 @@ const getInitialState = (): GameState => {
     techniques: INITIAL_TECHNIQUES.map(technique => ({ ...technique })),
     log: [{ id: 0, message: 'You awaken in a small village, feeling a strange energy within...', type: 'info', timestamp: Date.now() }],
     totalCultivationTime: 0, breakthroughs: 0, explorationsCompleted: 0, battlesWon: 0,
+    worldTime: 0, lastTickAt: Date.now(), nextWorldEventAt: 3600, worldEvents: [], recentEventIds: [], eventCount: 0,
+    charactersMet: [], path: 'spirit', divineCooldownUntil: 0, sectId: null, sectReputation: 0, disciples: [],
+    region: 'village', visitedRegions: ['village'], heartDemon: 0, forbiddenRoute: false, heavenlyKarma: 0,
   };
 
   try {
@@ -41,6 +44,23 @@ const getInitialState = (): GameState => {
       log: Array.isArray(parsed.log)
         ? parsed.log.filter(entry => entry && typeof entry.message === 'string').slice(0, 50)
         : defaults.log,
+      worldTime: finiteNonNegative(parsed.worldTime, defaults.worldTime),
+      lastTickAt: finiteNonNegative(parsed.lastTickAt, Date.now()),
+      nextWorldEventAt: finiteNonNegative(parsed.nextWorldEventAt, defaults.nextWorldEventAt),
+      worldEvents: Array.isArray(parsed.worldEvents) ? parsed.worldEvents.filter(isWorldEvent).slice(0, 40) : [],
+      recentEventIds: Array.isArray(parsed.recentEventIds) ? parsed.recentEventIds.filter((id): id is string => typeof id === 'string').slice(0, 8) : [],
+      eventCount: Math.max(0, Math.floor(finiteNonNegative(parsed.eventCount, 0))),
+      charactersMet: Array.isArray(parsed.charactersMet) ? parsed.charactersMet.filter((name): name is string => typeof name === 'string').slice(-2000) : [],
+      path: isPath(parsed.path) ? parsed.path : defaults.path,
+      divineCooldownUntil: finiteNonNegative(parsed.divineCooldownUntil, 0),
+      sectId: typeof parsed.sectId === 'string' && SECTS.some(sect => sect.id === parsed.sectId) ? parsed.sectId : null,
+      sectReputation: finiteNonNegative(parsed.sectReputation, 0),
+      disciples: Array.isArray(parsed.disciples) ? parsed.disciples.filter(isDisciple).slice(0, 20) : [],
+      region: isRegion(parsed.region) ? parsed.region : defaults.region,
+      visitedRegions: Array.from(new Set([...(Array.isArray(parsed.visitedRegions) ? parsed.visitedRegions.filter(isRegion) : defaults.visitedRegions), isRegion(parsed.region) ? parsed.region : defaults.region])),
+      heartDemon: Math.min(1, finiteNonNegative(parsed.heartDemon, 0)),
+      forbiddenRoute: parsed.forbiddenRoute === true,
+      heavenlyKarma: finiteNonNegative(parsed.heavenlyKarma, 0),
     };
   } catch {
     return defaults;
@@ -76,12 +96,13 @@ export function useGameState() {
   useEffect(() => {
     const interval = setInterval(() => {
       setState(prev => {
-        const elapsedSeconds = 0.1; // 100 ms loop; game rates are per second.
-        let newState = { ...prev };
+        const now = Date.now();
+        const elapsedSeconds = Math.min(28_800, Math.max(0, (now - (prev.lastTickAt || now)) / 1000));
+        let newState = { ...prev, lastTickAt: now, worldTime: prev.worldTime + elapsedSeconds * 60 };
         
         // Meditation gains
         if (prev.isMeditating) {
-          const qiGain = prev.qiPerSecond * prev.cultivationSpeed * getTechniqueBonus(prev) * elapsedSeconds;
+          const qiGain = prev.qiPerSecond * prev.cultivationSpeed * getTechniqueBonus(prev) * getPathBonus(prev) * elapsedSeconds;
           newState.qi = Math.min(prev.qi + qiGain, prev.maxQi);
           newState.totalCultivationTime += elapsedSeconds;
         }
@@ -95,10 +116,12 @@ export function useGameState() {
             newState.explorationsCompleted += 1;
             
             // Random event
-            const event = EXPLORE_EVENTS[Math.floor(Math.random() * EXPLORE_EVENTS.length)];
-            newState.log = addLog(newState.log, event.message, 'success');
-            newState.qi = Math.min(newState.qi + event.qi, newState.maxQi);
-            newState.spiritStones = Math.max(0, newState.spiritStones + event.stones);
+            const region = REGIONS[newState.region];
+            const pool = EXPLORE_EVENTS.filter((_, index) => region.risk > 1 || index !== 11);
+            const event = pool[Math.floor(Math.random() * pool.length)];
+            newState.log = addLog(newState.log, `${region.name}: ${event.message}`, 'success');
+            newState.qi = Math.min(newState.qi + Math.round(event.qi * region.reward), newState.maxQi);
+            newState.spiritStones = Math.max(0, newState.spiritStones + Math.round(event.stones * region.reward));
             
             // Add items
             for (const itemDrop of event.items) {
@@ -111,6 +134,41 @@ export function useGameState() {
                 if (template) newState.items = [...newState.items, { ...template, quantity: itemDrop.quantity }];
               }
             }
+          }
+        }
+
+        // World clock: one real second advances one in-world minute. Events are contextual,
+        // persistent and rate-limited so offline catch-up cannot flood the chronicle.
+        if (newState.worldTime >= newState.nextWorldEventAt) {
+          const eligible = WORLD_EVENT_TEMPLATES.filter(event => !newState.recentEventIds.includes(event.id));
+          const template = eligible[Math.floor(Math.random() * eligible.length)] ?? WORLD_EVENT_TEMPLATES[0];
+          const stranger = newState.charactersMet.length === 0 || newState.eventCount % 3 === 0;
+          const name = stranger
+            ? generateCharacterName(newState.charactersMet, newState.eventCount + Math.floor(newState.worldTime / 3600))
+            : newState.charactersMet[(newState.eventCount + 2) % newState.charactersMet.length];
+          const eventRecord = {
+            id: `world-${newState.eventCount + 1}`, title: template.title,
+            description: template.text.replace('{name}', name).replace('{region}', REGIONS[newState.region].name),
+            occurredAt: now, region: newState.region, ...(stranger ? { character: name } : {}),
+          };
+          newState.worldEvents = [eventRecord, ...newState.worldEvents].slice(0, 40);
+          newState.recentEventIds = [...newState.recentEventIds, template.id].slice(-4);
+          newState.eventCount += 1;
+          newState.nextWorldEventAt = newState.worldTime + 3600;
+          if (stranger && !newState.charactersMet.includes(name)) newState.charactersMet = [...newState.charactersMet, name].slice(-2000);
+          const rewardScale = REGIONS[newState.region].reward;
+          newState.qi = Math.min(newState.maxQi, newState.qi + Math.round(template.qi * rewardScale));
+          newState.spiritStones = Math.max(0, newState.spiritStones + Math.round(template.stones * rewardScale));
+          if (newState.region === 'forbidden_vale') newState.heartDemon = Math.min(1, newState.heartDemon + 0.025);
+          newState.log = addLog(newState.log, eventRecord.description, 'info');
+        }
+        const arrivalCount = Math.max(0, Math.floor(newState.worldTime / 21_600) - Math.floor(prev.worldTime / 21_600));
+        for (let arrival = 0; arrival < arrivalCount; arrival += 1) {
+          const name = generateCharacterName(newState.charactersMet, newState.eventCount + newState.disciples.length * 3 + arrival);
+          if (!newState.charactersMet.includes(name)) {
+            newState.charactersMet = [...newState.charactersMet, name].slice(-2000);
+            const talent = ['steady', 'brilliant', 'unorthodox'][(newState.eventCount + arrival) % 3];
+            newState.worldEvents = [{ id: `arrival-${newState.eventCount}-${name}`, title: 'A new cultivator arrives', description: `${name}, a ${talent} talent, arrives near ${REGIONS[newState.region].name}.`, occurredAt: now, region: newState.region, character: name }, ...newState.worldEvents].slice(0, 40);
           }
         }
 
@@ -162,7 +220,7 @@ export function useGameState() {
       const currentRealm = REALMS[prev.realm];
       const nextRealm = REALMS[prev.realm + 1];
 
-      if (prev.isMeditating || prev.isExploring || prev.tribulationActive) {
+      if (prev.isMeditating || prev.isExploring || prev.tribulationActive || prev.heartDemon >= 0.75) {
         return { ...prev, log: addLog(prev.log, 'Finish your current activity before attempting a breakthrough.', 'warning') };
       }
       
@@ -174,7 +232,7 @@ export function useGameState() {
         return { ...prev, log: addLog(prev.log, `Not enough Qi. Need ${formatNumber(nextRealm.qiRequired)}, have ${formatNumber(Math.floor(prev.qi))}.`, 'warning') };
       }
 
-      const breakthroughChance = Math.min(1, nextRealm.breakthroughChance + getBreakthroughBonus(prev));
+      const breakthroughChance = Math.min(0.95, Math.max(0.05, nextRealm.breakthroughChance + getBreakthroughBonus(prev) + CULTIVATION_PATHS[prev.path].breakthrough - prev.heartDemon * 0.12));
       const success = Math.random() < breakthroughChance;
       
       const newState = { ...prev, breakthroughAttempts: prev.breakthroughAttempts + 1 };
@@ -185,6 +243,8 @@ export function useGameState() {
         newState.qiPerSecond = 1 + (prev.realm + 1) * 2;
         newState.combatPower = 10 + (prev.realm + 1) * 50;
         newState.breakthroughs += 1;
+        newState.heartDemon = Math.max(0, newState.heartDemon - 0.12);
+        newState.heavenlyKarma = Math.min(100, newState.heavenlyKarma + (prev.forbiddenRoute ? 8 : 2));
         newState.log = addLog(newState.log, `⚡ BREAKTHROUGH! You have advanced to ${nextRealm.name}! ⚡`, 'breakthrough');
         
         // Learn techniques available at new realm
@@ -201,10 +261,12 @@ export function useGameState() {
         }
       } else {
         newState.qi = prev.qi * 0.7; // Lose 30% qi on failure
+        newState.heartDemon = Math.min(1, prev.heartDemon + 0.18 + (prev.forbiddenRoute ? 0.08 : 0));
+        newState.heavenlyKarma = Math.min(100, prev.heavenlyKarma + 5 + (prev.forbiddenRoute ? 8 : 0));
         newState.log = addLog(newState.log, `Breakthrough failed! The qi scattered. (${Math.floor(breakthroughChance * 100)}% chance)`, 'danger');
         
         // Chance of tribulation at higher realms
-        if (prev.realm >= 6 && Math.random() < 0.3) {
+        if ((prev.realm >= 6 || prev.heavenlyKarma >= 25) && Math.random() < Math.min(0.65, 0.2 + prev.heavenlyKarma / 200)) {
           newState.tribulationActive = true;
           newState.tribulationHealth = 100;
           newState.log = addLog(newState.log, '⚡ Heavenly Tribulation descends! Endure the lightning!', 'danger');
@@ -334,8 +396,8 @@ export function useGameState() {
         return { ...prev, log: addLog(prev.log, `Hunting requires ${entryCost} spirit stones.`, 'warning') };
       }
 
-      const enemyPower = 18 + prev.realm * 30 + Math.floor(Math.random() * 24);
-      const playerPower = prev.combatPower;
+      const enemyPower = 18 + prev.realm * 30 + REGIONS[prev.region].risk * 18 + Math.floor(Math.random() * 24);
+      const playerPower = prev.combatPower + CULTIVATION_PATHS[prev.path].combat;
       const winChance = Math.min(0.9, Math.max(0.15, 0.55 + (playerPower - enemyPower) / Math.max(80, enemyPower * 1.5)));
       const victory = Math.random() < winChance;
       const remainingStones = prev.spiritStones - entryCost;
@@ -354,8 +416,9 @@ export function useGameState() {
       const items = prev.items.some(item => item.id === lootId)
         ? prev.items.map(item => item.id === lootId ? { ...item, quantity: item.quantity + 1 } : item)
         : prev.items;
-      const rewardStones = 12 + prev.realm * 6;
-      const rewardQi = 10 + prev.realm * 20;
+      const regionReward = REGIONS[prev.region].reward;
+      const rewardStones = Math.round((12 + prev.realm * 6) * regionReward);
+      const rewardQi = Math.round((10 + prev.realm * 20) * regionReward);
       return {
         ...prev,
         items,
@@ -365,6 +428,75 @@ export function useGameState() {
         battlesWon: prev.battlesWon + 1,
         log: addLog(prev.log, `Victory! You defeated a spirit beast, found ${rewardStones} spirit stones and 1 ${lootId.replace('_', ' ')}. Combat mastery increased.`, 'success'),
       };
+    });
+  }, []);
+
+  const choosePath = useCallback((path: CultivationPathId) => {
+    setState(prev => prev.path === path ? prev : { ...prev, path, log: addLog(prev.log, `You commit to the ${CULTIVATION_PATHS[path].name} path.`, 'success') });
+  }, []);
+
+  const travelTo = useCallback((regionId: RegionId) => {
+    setState(prev => {
+      const region = REGIONS[regionId];
+      if (prev.realm < region.minRealm) return { ...prev, log: addLog(prev.log, `${region.name} requires realm ${region.minRealm}.`, 'warning') };
+      if (prev.isMeditating || prev.isExploring || prev.tribulationActive) return { ...prev, log: addLog(prev.log, 'Finish your current activity before travelling.', 'warning') };
+      return { ...prev, region: regionId, visitedRegions: Array.from(new Set([...prev.visitedRegions, regionId])), log: addLog(prev.log, `You arrive at ${region.name}. ${region.description}`, 'info') };
+    });
+  }, []);
+
+  const joinSect = useCallback((sectId: string) => {
+    setState(prev => {
+      if (!SECTS.some(sect => sect.id === sectId)) return prev;
+      if (prev.sectId) return { ...prev, log: addLog(prev.log, 'You already belong to a sect. Leave your oath intact.', 'warning') };
+      return { ...prev, sectId, sectReputation: 0, log: addLog(prev.log, `You swear an oath to ${SECTS.find(sect => sect.id === sectId)!.name}.`, 'success') };
+    });
+  }, []);
+
+  const contributeToSect = useCallback(() => {
+    setState(prev => {
+      if (!prev.sectId) return prev;
+      if (prev.spiritStones < 10) return { ...prev, log: addLog(prev.log, 'A contribution requires 10 spirit stones.', 'warning') };
+      return { ...prev, spiritStones: prev.spiritStones - 10, sectReputation: prev.sectReputation + 10, log: addLog(prev.log, 'Your 10-stone contribution earns 10 sect reputation.', 'success') };
+    });
+  }, []);
+
+  const recruitDisciple = useCallback(() => {
+    setState(prev => {
+      const capacity = 3 + Math.floor(prev.sectReputation / 50);
+      if (!prev.sectId) return { ...prev, log: addLog(prev.log, 'Join a sect before taking disciples.', 'warning') };
+      if (prev.disciples.length >= capacity) return { ...prev, log: addLog(prev.log, `Your current disciple capacity is ${capacity}. Raise sect reputation to expand it.`, 'warning') };
+      if (prev.spiritStones < 25) return { ...prev, log: addLog(prev.log, 'Recruitment requires 25 spirit stones.', 'warning') };
+      const name = generateCharacterName([...prev.charactersMet, ...prev.disciples.map(d => d.name)], prev.eventCount + prev.disciples.length);
+      const talent: Disciple['talent'] = ['steady', 'brilliant', 'unorthodox'][Math.floor(Math.random() * 3)] as Disciple['talent'];
+      const disciple = { id: `disciple-${Date.now()}-${prev.disciples.length}`, name, talent, realm: Math.max(0, prev.realm - 1), loyalty: 60 + Math.floor(Math.random() * 31), recruitedAt: prev.worldTime };
+      return { ...prev, spiritStones: prev.spiritStones - 25, disciples: [...prev.disciples, disciple], charactersMet: [...prev.charactersMet, name].slice(-2000), log: addLog(prev.log, `${name}, a ${talent} talent, joins your sect household.`, 'success') };
+    });
+  }, []);
+
+  const useDivineAbility = useCallback(() => {
+    setState(prev => {
+      if (prev.worldTime < prev.divineCooldownUntil) return { ...prev, log: addLog(prev.log, 'Your divine ability is still recovering.', 'warning') };
+      const path = CULTIVATION_PATHS[prev.path];
+      const qi = prev.path === 'spirit' ? Math.min(prev.maxQi, prev.qi + Math.round(prev.maxQi * 0.18)) : prev.qi;
+      const combat = prev.path === 'sword' ? prev.combatPower + 18 : prev.combatPower;
+      const heartDemon = prev.path === 'shadow' ? Math.min(1, prev.heartDemon + 0.12) : Math.max(0, prev.heartDemon - (prev.path === 'body' ? 0.2 : 0.06));
+      const karma = prev.path === 'shadow' ? Math.min(100, prev.heavenlyKarma + 6) : Math.max(0, prev.heavenlyKarma - 2);
+      return { ...prev, qi, combatPower: combat, heartDemon, heavenlyKarma: karma, divineCooldownUntil: prev.worldTime + 3600, log: addLog(prev.log, `${path.ability} answers your call.`, 'success') };
+    });
+  }, []);
+
+  const toggleForbiddenRoute = useCallback(() => {
+    setState(prev => prev.forbiddenRoute
+      ? { ...prev, forbiddenRoute: false, heartDemon: Math.max(0, prev.heartDemon - 0.05), log: addLog(prev.log, 'You seal the forbidden route and regain a measure of clarity.', 'info') }
+      : { ...prev, forbiddenRoute: true, heavenlyKarma: Math.min(100, prev.heavenlyKarma + 5), log: addLog(prev.log, 'You open a forbidden route. Power may come faster; heaven and your own heart will exact a price.', 'danger') });
+  }, []);
+
+  const confrontHeartDemon = useCallback(() => {
+    setState(prev => {
+      if (prev.heartDemon < 0.35) return { ...prev, log: addLog(prev.log, 'Your heart is clear enough; no demon can take form.', 'info') };
+      const chance = Math.min(0.85, 0.45 + prev.realm * 0.025 + (prev.path === 'body' ? 0.15 : 0));
+      if (Math.random() < chance) return { ...prev, heartDemon: Math.max(0, prev.heartDemon - 0.45), qi: Math.min(prev.maxQi, prev.qi + 40), log: addLog(prev.log, 'You face the heart demon without flinching. Clarity returns.', 'success') };
+      return { ...prev, heartDemon: Math.min(1, prev.heartDemon + 0.15), qi: Math.floor(prev.qi * 0.9), log: addLog(prev.log, 'The heart demon finds a crack in your resolve. You lose 10% Qi.', 'danger') };
     });
   }, []);
 
@@ -382,10 +514,30 @@ export function useGameState() {
     craftPill,
     trainTechnique,
     huntSpiritBeast,
+    choosePath, travelTo, joinSect, contributeToSect, recruitDisciple, useDivineAbility, toggleForbiddenRoute, confrontHeartDemon,
     addLogEntry,
     resetGame,
   };
 }
+
+function generateCharacterName(used: string[], salt: number): string {
+  const given = ['Yue', 'Rui', 'Wen', 'Yan', 'Lian', 'Kai', 'Nian', 'Chen', 'Zhi', 'Fang', 'Xin', 'Ming'];
+  const family = ['Lin', 'Shen', 'Qiao', 'Mo', 'Bai', 'Ren', 'Su', 'Gu', 'Yun', 'He', 'Luo', 'Tao'];
+  for (let offset = 0; offset < family.length * given.length; offset += 1) {
+    const index = (salt + offset) % (family.length * given.length);
+    const candidate = `${family[Math.floor(index / given.length)]} ${given[index % given.length]}`;
+    if (!used.includes(candidate)) return candidate;
+  }
+  let suffix = Math.max(1, salt + 1);
+  while (used.includes(`Wandering Cultivator ${suffix}`)) suffix += 1;
+  return `Wandering Cultivator ${suffix}`;
+}
+function isPath(value: unknown): value is CultivationPathId { return value === 'sword' || value === 'spirit' || value === 'body' || value === 'shadow'; }
+function isRegion(value: unknown): value is RegionId { return value === 'village' || value === 'bamboo' || value === 'ruins' || value === 'thunder_peak' || value === 'forbidden_vale'; }
+function finiteNonNegative(value: unknown, fallback: number): number { return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, value) : fallback; }
+function isWorldEvent(value: any): boolean { return value && typeof value.id === 'string' && typeof value.title === 'string' && typeof value.description === 'string' && isRegion(value.region); }
+function isDisciple(value: any): value is Disciple { return value && typeof value.id === 'string' && typeof value.name === 'string' && (value.talent === 'steady' || value.talent === 'brilliant' || value.talent === 'unorthodox') && Number.isFinite(value.realm) && Number.isFinite(value.loyalty) && Number.isFinite(value.recruitedAt); }
+function getPathBonus(state: GameState): number { return 1 + CULTIVATION_PATHS[state.path].qi + (state.forbiddenRoute ? 0.12 : 0); }
 
 function addLog(log: LogEntry[], message: string, type: LogEntry['type']): LogEntry[] {
   const entry: LogEntry = { id: logIdCounter++, message, type, timestamp: Date.now() };

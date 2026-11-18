@@ -12,7 +12,7 @@ export const StatusPanel: React.FC<Props> = ({ state }) => {
   const nextRealm = REALMS[state.realm + 1];
   const qiPercent = nextRealm ? Math.min((state.qi / nextRealm.qiRequired) * 100, 100) : 100;
   const techniqueMultiplier = 1 + state.techniques.reduce((bonus, technique) => bonus + (technique.learned && technique.type === 'cultivation' ? technique.level * 0.15 : 0), 0);
-  const effectiveQiRate = state.qiPerSecond * state.cultivationSpeed * techniqueMultiplier;
+  const effectiveQiRate = state.qiPerSecond * state.cultivationSpeed * techniqueMultiplier * (state.path === 'spirit' ? 1.24 : state.path === 'shadow' ? 1.18 : state.path === 'body' ? 1.08 : 1.04) * (state.forbiddenRoute ? 1.12 : 1);
 
   return (
     <div className="bg-gray-900/80 backdrop-blur-sm border border-purple-900/50 rounded-xl p-4 shadow-lg shadow-purple-900/20">

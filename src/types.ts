@@ -40,6 +40,27 @@ export interface LogEntry {
   timestamp: number;
 }
 
+export type CultivationPathId = 'sword' | 'spirit' | 'body' | 'shadow';
+export type RegionId = 'village' | 'bamboo' | 'ruins' | 'thunder_peak' | 'forbidden_vale';
+
+export interface Disciple {
+  id: string;
+  name: string;
+  talent: 'steady' | 'brilliant' | 'unorthodox';
+  realm: number;
+  loyalty: number;
+  recruitedAt: number;
+}
+
+export interface WorldEventRecord {
+  id: string;
+  title: string;
+  description: string;
+  occurredAt: number;
+  region: RegionId;
+  character?: string;
+}
+
 export interface GameState {
   playerName: string;
   realm: number;
@@ -62,4 +83,21 @@ export interface GameState {
   breakthroughs: number;
   explorationsCompleted: number;
   battlesWon: number;
+  worldTime: number;
+  lastTickAt: number;
+  nextWorldEventAt: number;
+  worldEvents: WorldEventRecord[];
+  recentEventIds: string[];
+  eventCount: number;
+  charactersMet: string[];
+  path: CultivationPathId;
+  divineCooldownUntil: number;
+  sectId: string | null;
+  sectReputation: number;
+  disciples: Disciple[];
+  region: RegionId;
+  visitedRegions: RegionId[];
+  heartDemon: number;
+  forbiddenRoute: boolean;
+  heavenlyKarma: number;
 }

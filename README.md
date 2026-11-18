@@ -10,6 +10,11 @@ A browser-based cultivation incremental game built with React, TypeScript, Vite,
 - **Hunt spirit beasts:** spend spirit stones to enter a combat encounter. Victory grants loot, Qi, spirit stones, and combat mastery; defeat costs 10% of current Qi.
 - **Train techniques and practice alchemy:** improve learned techniques and craft pills from gathered materials.
 - **Follow the Spirit Mind Advisor:** review live realm progress, estimated breakthrough odds, time-to-target, training opportunities, combat readiness, and achievement milestones.
+- **Live cultivation world:** time advances at one in-world minute per real second, with a one-hour world event about every real minute and new cultivators arriving over time. Up to eight real hours of elapsed time are simulated on return.
+- **Explore an open frontier:** travel between five regions with realm gates and different encounter danger/reward multipliers; discoveries are kept in a persistent chronicle.
+- **Choose a cultivation path:** Spirit, Sword, Body, and Shadow paths change cultivation, combat, and breakthrough bonuses and grant a path-flavored divine ability with a one-world-hour cooldown.
+- **Build a sect household:** swear an oath to one of three sects, contribute spirit stones for reputation, recruit named disciples, and raise household capacity.
+- **Face inner and heavenly trials:** breakthrough failure can deepen a heart demon and increase heavenly karma; forbidden cultivation speeds Qi at a cost; tribulation risk rises with karma.
 
 ## Intelligence and analytics
 
@@ -46,3 +51,4 @@ The game automatically saves to this browser's local storage every five seconds 
 - `src/gameData.ts` — realms, items, techniques, exploration events, and recipes
 - `src/components/AdvisorPanel.tsx` — strategic recommendations and progression analytics
 - `src/components/ActionPanel.tsx` — cultivation, exploration, hunting, and breakthrough actions
+- `src/components/WorldPanel.tsx` — map, paths, sect and disciple management, divine abilities, risks, and world chronicle

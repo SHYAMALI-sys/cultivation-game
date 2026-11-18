@@ -19,10 +19,11 @@ export const AdvisorPanel: React.FC<Props> = ({ state, onMeditate, onExplore, on
   const cultivationTechniques = state.techniques.filter(t => t.learned && t.type === 'cultivation');
   const breakthroughBonus = state.items.reduce((sum, item) =>
     sum + (item.quantity > 0 ? (item.effect?.breakthroughBonus ?? 0) : 0), 0);
-  const chance = nextRealm ? Math.min(1, Math.max(0, nextRealm.breakthroughChance + breakthroughBonus)) : 1;
+  const pathBreakthrough = state.path === 'spirit' ? 0.02 : state.path === 'sword' ? 0.01 : state.path === 'body' ? 0.04 : 0.03;
+  const chance = nextRealm ? Math.min(0.95, Math.max(0.05, nextRealm.breakthroughChance + breakthroughBonus + pathBreakthrough - state.heartDemon * 0.12)) : 1;
   const required = nextRealm?.qiRequired ?? Infinity;
   const qiRatio = nextRealm ? Math.min(1, state.qi / required) : 1;
-  const qiRate = state.qiPerSecond * state.cultivationSpeed * (1 + cultivationTechniques.reduce((sum, t) => sum + t.level * 0.15, 0));
+  const qiRate = state.qiPerSecond * state.cultivationSpeed * (1 + cultivationTechniques.reduce((sum, t) => sum + t.level * 0.15, 0)) * (state.path === 'spirit' ? 1.24 : state.path === 'shadow' ? 1.18 : state.path === 'body' ? 1.08 : 1.04) * (state.forbiddenRoute ? 1.12 : 1);
   const missingQi = nextRealm ? Math.max(0, required - state.qi) : 0;
   const secondsToBreakthrough = qiRate > 0 ? Math.ceil(missingQi / qiRate) : Infinity;
   const affordableTraining = state.techniques.find(t =>
@@ -34,8 +35,8 @@ export const AdvisorPanel: React.FC<Props> = ({ state, onMeditate, onExplore, on
     state.realm >= recipe.realmRequired &&
     recipe.ingredients.every(ingredient =>
       (state.items.find(item => item.id === ingredient.id)?.quantity ?? 0) >= ingredient.quantity));
-  const expectedBeastPower = 30 + state.realm * 30;
-  const huntOdds = Math.round(Math.min(0.9, Math.max(0.15, 0.55 + (state.combatPower - expectedBeastPower) / Math.max(80, expectedBeastPower * 1.5))) * 100);
+  const expectedBeastPower = 30 + state.realm * 30 + ({ village: 0, bamboo: 18, ruins: 36, thunder_peak: 54, forbidden_vale: 72 }[state.region]);
+  const huntOdds = Math.round(Math.min(0.9, Math.max(0.15, 0.55 + (state.combatPower + ({ spirit: 0, sword: 14, body: 8, shadow: 4 }[state.path]) - expectedBeastPower) / Math.max(80, expectedBeastPower * 1.5))) * 100);
 
   const insights: Insight[] = [];
 

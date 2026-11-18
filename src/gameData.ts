@@ -1,4 +1,5 @@
 import { Realm, Item, Technique } from './types';
+import type { CultivationPathId, RegionId } from './types';
 
 export const REALMS: Realm[] = [
   { id: 0, name: 'Mortal', description: 'An ordinary person, unaware of the cultivation world.', qiRequired: 0, breakthroughChance: 1, color: '#6b7280' },
@@ -73,3 +74,36 @@ export const ALCHEMY_RECIPES = [
   { id: 'foundation_pill', name: 'Foundation Pill', ingredients: [{ id: 'jade_herb', quantity: 3 }, { id: 'crystal', quantity: 1 }], result: { id: 'foundation_pill', quantity: 1 }, realmRequired: 4 },
   { id: 'core_pill', name: 'Core Formation Pill', ingredients: [{ id: 'jade_herb', quantity: 5 }, { id: 'crystal', quantity: 3 }, { id: 'iron_ore', quantity: 5 }], result: { id: 'core_pill', quantity: 1 }, realmRequired: 7 },
 ];
+
+
+export const CULTIVATION_PATHS: Record<CultivationPathId, { name: string; description: string; qi: number; combat: number; breakthrough: number; ability: string }> = {
+  spirit: { name: 'Spirit Meridian', description: 'Steady qi circulation and calm insight.', qi: 0.24, combat: 0, breakthrough: 0.02, ability: 'Heavenly Insight' },
+  sword: { name: 'Sword Heart', description: 'Turn resolve into clean, decisive force.', qi: 0.04, combat: 14, breakthrough: 0.01, ability: 'Thousand-Li Sword Intent' },
+  body: { name: 'Mountain Body', description: 'Temper flesh and endure heaven’s trials.', qi: 0.08, combat: 8, breakthrough: 0.04, ability: 'Mountain-Bearing Frame' },
+  shadow: { name: 'Hidden Moon', description: 'Walk the edge of forbidden knowledge.', qi: 0.18, combat: 4, breakthrough: 0.03, ability: 'Borrowed Shadow' },
+};
+
+export const REGIONS: Record<RegionId, { name: string; description: string; minRealm: number; risk: number; reward: number }> = {
+  village: { name: 'Willowmist Village', description: 'A safe foothold where wandering cultivators trade stories.', minRealm: 0, risk: 0, reward: 1 },
+  bamboo: { name: 'Jade Bamboo Sea', description: 'Herbs grow beneath a canopy that muffles distant footsteps.', minRealm: 0, risk: 1, reward: 1.25 },
+  ruins: { name: 'Sunken Star Ruins', description: 'Ancient formations still pulse below cracked stone.', minRealm: 2, risk: 2, reward: 1.7 },
+  thunder_peak: { name: 'Thunder-Crowned Peak', description: 'A storm-scarred ridge where heaven tests the ambitious.', minRealm: 5, risk: 3, reward: 2.3 },
+  forbidden_vale: { name: 'Forbidden Vale', description: 'The valley answers desire, then asks what you will surrender.', minRealm: 3, risk: 4, reward: 3 },
+};
+
+export const SECTS = [
+  { id: 'azure-pavilion', name: 'Azure Cloud Pavilion', motto: 'Stillness reveals the way.', focus: 'cultivation' },
+  { id: 'iron-peak', name: 'Iron Peak Hall', motto: 'Strength is a promise kept.', focus: 'combat' },
+  { id: 'moonless-court', name: 'Moonless Court', motto: 'Every shadow has a price.', focus: 'forbidden' },
+] as const;
+
+export const WORLD_EVENT_TEMPLATES = [
+  { id: 'traveller', title: 'A traveller at the crossroads', text: '{name} shares a rumor from {region}. You leave with a new perspective.', qi: 35, stones: 3 },
+  { id: 'omen', title: 'A sign in the heavens', text: 'A pale constellation turns above {region}; your meridians answer with a quiet pulse.', qi: 65, stones: 0 },
+  { id: 'market', title: 'The wandering market', text: 'A merchant caravan reaches {region}. You trade good fortune for spirit stones.', qi: 0, stones: 12 },
+  { id: 'rival', title: 'A rival takes notice', text: '{name} challenges the tale of your progress in {region}; the encounter sharpens your intent.', qi: 20, stones: 5 },
+  { id: 'herbs', title: 'A season of spirit herbs', text: 'A brief rain awakens a patch of herbs in {region}.', qi: 25, stones: 2 },
+  { id: 'heaven', title: 'Heaven’s distant warning', text: 'Thunder rolls over {region}. Your actions have drawn heaven’s attention.', qi: 45, stones: 0 },
+] as const;
+
+export const GENERATED_NAMES = ['Lin Yue', 'Shen Rui', 'Qiao Wen', 'Mo Yan', 'Bai Lian', 'Ren Kai', 'Su Nian', 'Gu Chen', 'Yun Zhi', 'He Fang', 'Luo Xin', 'Tao Ming'];

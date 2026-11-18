@@ -14,8 +14,10 @@ interface Props {
 export const ActionPanel: React.FC<Props> = ({ state, onToggleMeditation, onStartExploring, onHuntSpiritBeast, onAttemptBreakthrough }) => {
   const nextRealm = REALMS[state.realm + 1];
   const canBreakthrough = nextRealm && state.qi >= nextRealm.qiRequired;
+  const heartBlocked = state.heartDemon >= 0.75;
   const breakthroughBonus = state.items.reduce((sum, item) => sum + (item.quantity > 0 ? (item.effect?.breakthroughBonus ?? 0) : 0), 0);
-  const breakthroughChance = nextRealm ? Math.min(1, nextRealm.breakthroughChance + breakthroughBonus) : 0;
+  const pathBonus = state.path === 'spirit' ? 0.02 : state.path === 'sword' ? 0.01 : state.path === 'body' ? 0.04 : 0.03;
+  const breakthroughChance = nextRealm ? Math.min(0.95, Math.max(0.05, nextRealm.breakthroughChance + breakthroughBonus + pathBonus - state.heartDemon * 0.12)) : 0;
 
   return (
     <div className="bg-gray-900/80 backdrop-blur-sm border border-purple-900/50 rounded-xl p-4 shadow-lg shadow-purple-900/20">
@@ -88,7 +90,7 @@ export const ActionPanel: React.FC<Props> = ({ state, onToggleMeditation, onStar
         {nextRealm && (
           <button
             onClick={onAttemptBreakthrough}
-            disabled={!canBreakthrough || state.tribulationActive || state.isMeditating || state.isExploring}
+            disabled={!canBreakthrough || heartBlocked || state.tribulationActive || state.isMeditating || state.isExploring}
             className={`w-full py-3 px-4 rounded-lg font-semibold transition-all duration-300 ${
               canBreakthrough
                 ? 'bg-gradient-to-r from-yellow-600 to-amber-500 text-white shadow-lg shadow-yellow-500/30 hover:from-yellow-500 hover:to-amber-400 animate-pulse'
@@ -99,7 +101,9 @@ export const ActionPanel: React.FC<Props> = ({ state, onToggleMeditation, onStar
               ⚡ Attempt Breakthrough
             </span>
             <span className="text-xs mt-1 opacity-75">
-              {canBreakthrough 
+              {heartBlocked
+                ? 'Heart demon blocks the passage · confront it in the World Atlas'
+                : canBreakthrough
                 ? `→ ${nextRealm.name} (${Math.floor(breakthroughChance * 100)}% chance)`
                 : `Need ${formatNumber(nextRealm.qiRequired)} Qi`
               }
