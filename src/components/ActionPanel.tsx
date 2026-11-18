@@ -7,10 +7,11 @@ interface Props {
   state: GameState;
   onToggleMeditation: () => void;
   onStartExploring: () => void;
+  onHuntSpiritBeast: () => void;
   onAttemptBreakthrough: () => void;
 }
 
-export const ActionPanel: React.FC<Props> = ({ state, onToggleMeditation, onStartExploring, onAttemptBreakthrough }) => {
+export const ActionPanel: React.FC<Props> = ({ state, onToggleMeditation, onStartExploring, onHuntSpiritBeast, onAttemptBreakthrough }) => {
   const nextRealm = REALMS[state.realm + 1];
   const canBreakthrough = nextRealm && state.qi >= nextRealm.qiRequired;
 
@@ -66,6 +67,19 @@ export const ActionPanel: React.FC<Props> = ({ state, onToggleMeditation, onStar
               🗺️ Explore Wilderness
             </span>
           )}
+        </button>
+
+        {/* Spirit Beast Hunt */}
+        <button
+          onClick={onHuntSpiritBeast}
+          disabled={state.isMeditating || state.isExploring || state.tribulationActive || state.spiritStones < 5}
+          className="w-full rounded-lg border border-rose-900/60 bg-gradient-to-r from-rose-950 to-orange-950 px-4 py-3 text-left text-rose-100 transition-all hover:border-rose-600 hover:from-rose-900 hover:to-orange-900 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <span className="flex items-center justify-between gap-2">
+            <span className="font-semibold">🐉 Hunt a Spirit Beast</span>
+            <span className="text-xs text-rose-300">5 stones</span>
+          </span>
+          <span className="mt-1 block text-xs text-rose-200/70">Risk Qi to earn spirit stones, materials, and combat mastery.</span>
         </button>
 
         {/* Breakthrough Button */}
