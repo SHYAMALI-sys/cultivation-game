@@ -161,6 +161,10 @@ export function useGameState() {
     setState(prev => {
       const currentRealm = REALMS[prev.realm];
       const nextRealm = REALMS[prev.realm + 1];
+
+      if (prev.isMeditating || prev.isExploring || prev.tribulationActive) {
+        return { ...prev, log: addLog(prev.log, 'Finish your current activity before attempting a breakthrough.', 'warning') };
+      }
       
       if (!nextRealm) {
         return { ...prev, log: addLog(prev.log, 'You have already reached the pinnacle of cultivation!', 'warning') };
