@@ -139,6 +139,7 @@ function App() {
               onExplore={startExploring}
               onBreakthrough={attemptBreakthrough}
               onTrain={trainTechnique}
+              onHunt={huntSpiritBeast}
             />
             <div className="bg-gray-900/80 backdrop-blur-sm border border-purple-900/50 rounded-xl p-4 shadow-lg shadow-purple-900/20">
               <h3 className="text-lg font-bold text-purple-200 mb-3 flex items-center gap-2">
