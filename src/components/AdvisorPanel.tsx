@@ -9,11 +9,12 @@ interface Props {
   onExplore: () => void;
   onBreakthrough: () => void;
   onTrain: (id: string) => void;
+  onHunt: () => void;
 }
 
 type Insight = { title: string; detail: string; action: string; tone: 'good' | 'warn' | 'info'; run: () => void };
 
-export const AdvisorPanel: React.FC<Props> = ({ state, onMeditate, onExplore, onBreakthrough, onTrain }) => {
+export const AdvisorPanel: React.FC<Props> = ({ state, onMeditate, onExplore, onBreakthrough, onTrain, onHunt }) => {
   const nextRealm = REALMS[state.realm + 1];
   const cultivationTechniques = state.techniques.filter(t => t.learned && t.type === 'cultivation');
   const breakthroughBonus = state.items.reduce((sum, item) =>
@@ -55,9 +56,21 @@ export const AdvisorPanel: React.FC<Props> = ({ state, onMeditate, onExplore, on
     insights.push({ title: 'Alchemy materials ready', detail: `You have the ingredients to attempt ${craftableRecipe.name}. Crafting has a success chance, so keep spare materials when possible.`, action: 'Open alchemy', tone: 'info', run: () => undefined });
   }
 
+  if (!state.tribulationActive) {
+    insights.push({
+      title: 'Combat readiness',
+      detail: `Your combat power is ${formatNumber(state.combatPower)}. A spirit-beast hunt costs 5 spirit stones; estimated victory odds are around ${huntOdds}%. Defeat costs 10% of your current Qi.`,
+      action: 'Hunt a spirit beast',
+      tone: huntOdds >= 60 ? 'good' : 'warn',
+      run: onHunt,
+    });
+  }
+
   const successEstimate = nextRealm ? Math.round(chance * 100) : 100;
   const progression = nextRealm ? Math.round(qiRatio * 100) : 100;
   const learned = state.techniques.filter(t => t.learned).length;
+  const expectedBeastPower = 30 + state.realm * 30;
+  const huntOdds = Math.round(Math.min(0.9, Math.max(0.15, 0.55 + (state.combatPower - expectedBeastPower) / Math.max(80, expectedBeastPower * 1.5))) * 100);
 
   return (
     <section className="rounded-xl border border-cyan-800/50 bg-gradient-to-br from-slate-900/95 via-indigo-950/80 to-slate-900/90 p-4 shadow-lg shadow-cyan-950/20">
@@ -90,12 +103,12 @@ export const AdvisorPanel: React.FC<Props> = ({ state, onMeditate, onExplore, on
             </div>
             <p className="mt-1 text-xs leading-relaxed text-slate-400">{insight.detail}</p>
             {index === 0 && insight.action !== 'Endure the trial' && insight.action !== 'Meditation running' && insight.action !== 'Open alchemy' && (
-              <button onClick={insight.run} className="mt-2 rounded-md bg-cyan-800/70 px-3 py-1.5 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-700">
+              <button onClick={insight.run} disabled={state.tribulationActive || state.isMeditating || state.isExploring} className="mt-2 rounded-md bg-cyan-800/70 px-3 py-1.5 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-40">
                 {insight.action}
               </button>
             )}
-            {index > 0 && insight.action.startsWith('Train ') && (
-              <button onClick={insight.run} className="mt-2 rounded-md bg-indigo-800/70 px-3 py-1.5 text-xs font-semibold text-indigo-100 transition hover:bg-indigo-700">
+            {index > 0 && (insight.action.startsWith('Train ') || insight.action === 'Hunt a spirit beast') && (
+              <button onClick={insight.run} disabled={state.tribulationActive || state.isMeditating || state.isExploring || (insight.action === 'Hunt a spirit beast' && state.spiritStones < 5)} className="mt-2 rounded-md bg-indigo-800/70 px-3 py-1.5 text-xs font-semibold text-indigo-100 transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40">
                 {insight.action}
               </button>
             )}
