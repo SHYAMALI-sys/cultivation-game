@@ -19,6 +19,7 @@ function App() {
     useItem,
     craftPill,
     trainTechnique,
+    huntSpiritBeast,
     resetGame,
   } = useGameState();
 
@@ -101,6 +102,7 @@ function App() {
                 state={state}
                 onToggleMeditation={toggleMeditation}
                 onStartExploring={startExploring}
+                onHuntSpiritBeast={huntSpiritBeast}
                 onAttemptBreakthrough={attemptBreakthrough}
               />
               <InventoryPanel state={state} onUseItem={useItem} />
@@ -114,6 +116,7 @@ function App() {
                   state={state}
                   onToggleMeditation={toggleMeditation}
                   onStartExploring={startExploring}
+                  onHuntSpiritBeast={huntSpiritBeast}
                   onAttemptBreakthrough={attemptBreakthrough}
                 />
               )}
