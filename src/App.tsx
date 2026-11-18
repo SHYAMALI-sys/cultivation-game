@@ -168,7 +168,7 @@ function App() {
                 </div>
                 <p className="text-blue-300 mt-3 text-sm">Gathering spiritual energy...</p>
                 <p className="text-blue-400 text-xs mt-1">
-                  +{(state.qiPerSecond * state.cultivationSpeed).toFixed(1)} Qi/sec
+                  +{(state.qiPerSecond * state.cultivationSpeed * (1 + state.techniques.reduce((bonus, technique) => bonus + (technique.learned && technique.type === 'cultivation' ? technique.level * 0.15 : 0), 0))).toFixed(1)} Qi/sec
                 </p>
               </div>
             )}
