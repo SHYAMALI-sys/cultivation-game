@@ -17,7 +17,7 @@ export const AdvisorPanel: React.FC<Props> = ({ state, onMeditate, onExplore, on
   const nextRealm = REALMS[state.realm + 1];
   const cultivationTechniques = state.techniques.filter(t => t.learned && t.type === 'cultivation');
   const breakthroughBonus = state.items.reduce((sum, item) =>
-    sum + (item.quantity > 0 ? (item.effect?.breakthroughBonus ?? 0) * 0.1 : 0), 0);
+    sum + (item.quantity > 0 ? (item.effect?.breakthroughBonus ?? 0) : 0), 0);
   const chance = nextRealm ? Math.min(1, Math.max(0, nextRealm.breakthroughChance + breakthroughBonus)) : 1;
   const required = nextRealm?.qiRequired ?? Infinity;
   const qiRatio = nextRealm ? Math.min(1, state.qi / required) : 1;
@@ -101,6 +101,39 @@ export const AdvisorPanel: React.FC<Props> = ({ state, onMeditate, onExplore, on
             )}
           </div>
         ))}
+      </div>
+      <div className="mt-4 border-t border-slate-700/70 pt-3">
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-semibold text-slate-200">Cultivation milestones</h4>
+          <span className="text-[10px] uppercase tracking-wide text-slate-500">Achievements</span>
+        </div>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {[
+            { name: 'First Ascension', detail: 'Reach your first new realm', current: state.breakthroughs, target: 1 },
+            { name: 'Wayfarer', detail: 'Complete 10 expeditions', current: state.explorationsCompleted, target: 10 },
+            { name: 'Persistent Will', detail: 'Make 10 breakthrough attempts', current: state.breakthroughAttempts, target: 10 },
+            { name: 'Grand Scholar', detail: 'Learn every technique', current: learned, target: state.techniques.length },
+          ].map(milestone => {
+            const progress = Math.min(100, Math.round((milestone.current / milestone.target) * 100));
+            const complete = progress >= 100;
+            return (
+              <div key={milestone.name} className={`rounded-lg border p-2 ${complete ? 'border-emerald-700/60 bg-emerald-950/30' : 'border-slate-700/60 bg-slate-950/40'}`}>
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-xs font-semibold text-slate-200">{milestone.name}</span>
+                  <span className={`text-[10px] ${complete ? 'text-emerald-300' : 'text-slate-500'}`}>{complete ? '✓' : `${Math.min(milestone.current, milestone.target)}/${milestone.target}`}</span>
+                </div>
+                <p className="mt-1 text-[10px] text-slate-500">{milestone.detail}</p>
+                <div className="mt-2 h-1 overflow-hidden rounded-full bg-slate-800">
+                  <div className={`h-full rounded-full ${complete ? 'bg-emerald-400' : 'bg-indigo-400'}`} style={{ width: `${progress}%` }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-3 flex items-center justify-between rounded-lg bg-slate-950/40 px-3 py-2 text-xs">
+          <span className="text-slate-400">Breakthrough success rate</span>
+          <strong className="text-cyan-200">{state.breakthroughAttempts ? Math.round((state.breakthroughs / state.breakthroughAttempts) * 100) : 0}%</strong>
+        </div>
       </div>
       <p className="mt-3 text-[11px] leading-relaxed text-slate-500">Estimates assume uninterrupted meditation and the game's current deterministic bonuses. Actual breakthrough outcomes remain probabilistic.</p>
     </section>
