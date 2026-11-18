@@ -34,6 +34,9 @@ export const AdvisorPanel: React.FC<Props> = ({ state, onMeditate, onExplore, on
     state.realm >= recipe.realmRequired &&
     recipe.ingredients.every(ingredient =>
       (state.items.find(item => item.id === ingredient.id)?.quantity ?? 0) >= ingredient.quantity));
+  const expectedBeastPower = 30 + state.realm * 30;
+  const huntOdds = Math.round(Math.min(0.9, Math.max(0.15, 0.55 + (state.combatPower - expectedBeastPower) / Math.max(80, expectedBeastPower * 1.5))) * 100);
+
   const insights: Insight[] = [];
 
   if (state.tribulationActive) {
@@ -69,8 +72,6 @@ export const AdvisorPanel: React.FC<Props> = ({ state, onMeditate, onExplore, on
   const successEstimate = nextRealm ? Math.round(chance * 100) : 100;
   const progression = nextRealm ? Math.round(qiRatio * 100) : 100;
   const learned = state.techniques.filter(t => t.learned).length;
-  const expectedBeastPower = 30 + state.realm * 30;
-  const huntOdds = Math.round(Math.min(0.9, Math.max(0.15, 0.55 + (state.combatPower - expectedBeastPower) / Math.max(80, expectedBeastPower * 1.5))) * 100);
 
   return (
     <section className="rounded-xl border border-cyan-800/50 bg-gradient-to-br from-slate-900/95 via-indigo-950/80 to-slate-900/90 p-4 shadow-lg shadow-cyan-950/20">
