@@ -14,6 +14,8 @@ interface Props {
 export const ActionPanel: React.FC<Props> = ({ state, onToggleMeditation, onStartExploring, onHuntSpiritBeast, onAttemptBreakthrough }) => {
   const nextRealm = REALMS[state.realm + 1];
   const canBreakthrough = nextRealm && state.qi >= nextRealm.qiRequired;
+  const breakthroughBonus = state.items.reduce((sum, item) => sum + (item.quantity > 0 ? (item.effect?.breakthroughBonus ?? 0) : 0), 0);
+  const breakthroughChance = nextRealm ? Math.min(1, nextRealm.breakthroughChance + breakthroughBonus) : 0;
 
   return (
     <div className="bg-gray-900/80 backdrop-blur-sm border border-purple-900/50 rounded-xl p-4 shadow-lg shadow-purple-900/20">
@@ -98,7 +100,7 @@ export const ActionPanel: React.FC<Props> = ({ state, onToggleMeditation, onStar
             </span>
             <span className="text-xs mt-1 opacity-75">
               {canBreakthrough 
-                ? `→ ${nextRealm.name} (${Math.floor(nextRealm.breakthroughChance * 100)}% chance)`
+                ? `→ ${nextRealm.name} (${Math.floor(breakthroughChance * 100)}% chance)`
                 : `Need ${formatNumber(nextRealm.qiRequired)} Qi`
               }
             </span>
